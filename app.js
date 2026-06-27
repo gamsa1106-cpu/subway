@@ -150,6 +150,19 @@ function selectStation(name) {
   }, 100);
 }
 
+// 데모 데이터 (API 연결 실패 시 포트폴리오 시연용)
+function getDemoData(station) {
+  const demos = [
+    { subwayId:"1002", trainLineNm:"2호선(시청행)", arvlMsg2:`2분 후 (역삼)`, arvlMsg3:"역삼", arvlCd:"99", barvlDt:"120", lstcarAt:"0" },
+    { subwayId:"1002", trainLineNm:"2호선(성수행)", arvlMsg2:`5분 후 (선릉)`, arvlMsg3:"선릉", arvlCd:"99", barvlDt:"300", lstcarAt:"0" },
+    { subwayId:"1009", trainLineNm:"9호선(중앙보훈병원행)", arvlMsg2:`1분 후 (신논현)`, arvlMsg3:"신논현", arvlCd:"3",  barvlDt:"60",  lstcarAt:"0" },
+    { subwayId:"1009", trainLineNm:"9호선(개화행)",         arvlMsg2:`8분 후 (언주)`,  arvlMsg3:"언주",  arvlCd:"99", barvlDt:"480", lstcarAt:"0" },
+    { subwayId:"1003", trainLineNm:"3호선(오금행)",          arvlMsg2:`도착`,           arvlMsg3:station, arvlCd:"1",  barvlDt:"0",   lstcarAt:"0" },
+    { subwayId:"1003", trainLineNm:"3호선(대화행)",          arvlMsg2:`11분 후 (교대)`, arvlMsg3:"교대",  arvlCd:"99", barvlDt:"660", lstcarAt:"1" },
+  ];
+  return demos.map(d => ({ ...d, statnNm: station }));
+}
+
 // ── API 호출 ──
 async function fetchArrivals(station) {
   if (!station) return;
@@ -159,37 +172,65 @@ async function fetchArrivals(station) {
   clearTimers();
 
   const apiUrl = `https://swopenapi.seoul.go.kr/api/subway/${API_KEY}/json/realtimeStationArrival/0/100/${encodeURIComponent(station)}`;
+
+  // 프록시 목록 (URL 인코딩 하지 않고 그대로 붙임)
+  const proxies = [
+    `https://corsproxy.io/?${apiUrl}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
+  ];
+
   let data = null;
-  try {
-    const res = await fetch(PROXY + encodeURIComponent(apiUrl));
-    if (!res.ok) throw new Error(res.status);
-    data = await res.json();
-  } catch (e) {
-    showStatus("❌ 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.", true);
+  for (const url of proxies) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const json = await res.json();
+      if (json.realtimeArrivalList !== undefined || json.errorMessage) {
+        data = json; break;
+      }
+    } catch (e) { continue; }
+  }
+
+  // 모든 프록시 실패 → 데모 모드
+  if (!data) {
+    const demoList = getDemoData(station);
+    renderCards(demoList, station, true);
+    startAutoRefresh();
     return;
   }
 
   if (data.errorMessage) {
     const code = data.errorMessage.code;
-    if (code === "INFO-200") { showStatus("❌ 역을 찾을 수 없습니다. 역 이름을 다시 확인해주세요.", true); return; }
-    if (code === "INFO-001") { showStatus("❌ API 키가 올바르지 않습니다. data.seoul.go.kr 키를 확인해주세요.", true); return; }
+    if (code === "INFO-200") { showStatus("❌ 역을 찾을 수 없습니다.", true); return; }
+    if (code === "INFO-001") { showStatus("❌ API 키 오류. data.seoul.go.kr에서 키를 확인하세요.", true); return; }
     if (code !== "INFO-000") { showStatus(`❌ API 오류 (${code}): ${data.errorMessage.message}`, true); return; }
   }
 
   const list = data.realtimeArrivalList || [];
   if (!list.length) { showStatus("🚫 현재 운행 정보가 없습니다. (운행 종료 또는 역명 확인)", false); return; }
 
-  renderCards(list, station);
+  renderCards(list, station, false);
   startAutoRefresh();
 }
 
 // ── 카드 렌더링 ──
-function renderCards(list, station) {
+function renderCards(list, station, isDemo = false) {
   statusMsg.classList.add("hidden");
   refreshBar.classList.remove("hidden");
   const now = new Date();
   document.getElementById("last-updated").textContent =
-    `${stationLabel(station)} · 업데이트: ${now.toLocaleTimeString("ko-KR")}`;
+    `${stationLabel(station)} · 업데이트: ${now.toLocaleTimeString("ko-KR")}${isDemo ? " (데모)" : ""}`;
+
+  // 데모 배너
+  const existingBanner = document.getElementById("demo-banner");
+  if (existingBanner) existingBanner.remove();
+  if (isDemo) {
+    const banner = document.createElement("div");
+    banner.id = "demo-banner";
+    banner.className = "demo-banner";
+    banner.textContent = "⚠️ 데모 모드 — API 서버 연결 중 오류가 발생해 샘플 데이터를 표시합니다. 실제 운행 시에는 실시간 데이터가 나타납니다.";
+    grid.before(banner);
+  }
 
   grid.innerHTML = list.map(d => {
     const lineId    = d.subwayId || "1001";
