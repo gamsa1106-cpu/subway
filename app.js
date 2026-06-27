@@ -1,4 +1,4 @@
-const API_KEY = "YOUR_API_KEY_HERE"; // data.seoul.go.kr 에서 발급
+const API_KEY = "586a476a4867616d3132324e58585549";
 const PROXY   = "https://api.allorigins.win/raw?url=";
 
 const LINE_COLOR = {
