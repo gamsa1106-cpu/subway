@@ -130,7 +130,7 @@ input.addEventListener("input", () => {
   const q = input.value.trim();
   if (!q) { suggestEl.innerHTML = ""; return; }
   const hits = ALL_STATIONS.filter(s => s.includes(q)).slice(0, 8);
-  suggestEl.innerHTML = hits.map(s => `<li onclick="selectStation('${s}')">${s}역</li>`).join("");
+  suggestEl.innerHTML = hits.map(s => `<li onclick="selectStation('${s}')">${stationLabel(s)}</li>`).join("");
 });
 
 input.addEventListener("keydown", e => {
@@ -155,7 +155,7 @@ async function fetchArrivals(station) {
   if (!station) return;
   currentStation = station;
   suggestEl.innerHTML = "";
-  showStatus("⏳ " + station + "역 정보를 불러오는 중...", false);
+  showStatus("⏳ " + stationLabel(station) + " 정보를 불러오는 중...", false);
   clearTimers();
 
   try {
@@ -188,7 +188,7 @@ function renderCards(list, station) {
   refreshBar.classList.remove("hidden");
   const now = new Date();
   document.getElementById("last-updated").textContent =
-    `${station}역 · 업데이트: ${now.toLocaleTimeString("ko-KR")}`;
+    `${stationLabel(station)} · 업데이트: ${now.toLocaleTimeString("ko-KR")}`;
 
   grid.innerHTML = list.map(d => {
     const lineId    = d.subwayId || "1001";
@@ -259,9 +259,14 @@ function startAutoRefresh() {
 }
 function updateCountdown() {
   document.getElementById("refresh-info").textContent =
-    `${currentStation}역 · ${countdown}초 후 자동 갱신`;
+    `${stationLabel(currentStation)} · ${countdown}초 후 자동 갱신`;
 }
 function clearTimers() { clearInterval(countdownTimer); }
+
+// 역 이름에 "역" 붙이기 (이미 붙어있으면 생략)
+function stationLabel(name) {
+  return name.endsWith("역") ? name : name + "역";
+}
 
 // 초기화
 initLineMenu();
