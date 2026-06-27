@@ -1,11 +1,5 @@
-const API_KEY = "586a476a4867616d3132324e58585549";
-
-// CORS 프록시 목록 (순서대로 시도)
-const PROXIES = [
-  url => url,                                                          // 직접 호출
-  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,          // corsproxy.io
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, // allorigins
-];
+// API 키는 Vercel 환경변수에 저장 (코드에 노출 안 됨)
+// 로컬 개발 시: SEOUL_API_KEY 환경변수 설정
 
 const LINE_COLOR = {
   "1001":"#0052A4","1002":"#009D3E","1003":"#EF7C1C","1004":"#00A2D1",
@@ -164,25 +158,12 @@ async function fetchArrivals(station) {
   showStatus("⏳ " + stationLabel(station) + " 정보를 불러오는 중...", false);
   clearTimers();
 
-  const apiUrl = `https://swopenapi.seoul.go.kr/api/subway/${API_KEY}/json/realtimeStationArrival/0/100/${encodeURIComponent(station)}`;
   let data = null;
-
-  for (const makeUrl of PROXIES) {
-    try {
-      const res = await fetch(makeUrl(apiUrl), { signal: AbortSignal.timeout(6000) });
-      if (!res.ok) continue;
-      const json = await res.json();
-      // 정상 응답이면 사용
-      if (json.realtimeArrivalList !== undefined || json.errorMessage) {
-        data = json;
-        break;
-      }
-    } catch (e) {
-      continue; // 다음 프록시 시도
-    }
-  }
-
-  if (!data) {
+  try {
+    const res = await fetch(`/api/arrival?station=${encodeURIComponent(station)}`);
+    if (!res.ok) throw new Error("응답 오류 " + res.status);
+    data = await res.json();
+  } catch (e) {
     showStatus("❌ 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.", true);
     return;
   }
