@@ -12,7 +12,7 @@
     <div class="header-inner">
       <div>
         <h1>🚇 서울 지하철 실시간 도착정보</h1>
-        <p id="last-updated">역 이름을 검색하세요</p>
+        <p id="last-updated">노선을 선택하거나 역 이름을 검색하세요</p>
       </div>
       <div class="badge">서울 열린데이터 광장</div>
     </div>
@@ -20,13 +20,27 @@
 
   <main>
 
+    <!-- 노선 탭 메뉴 -->
+    <div class="line-tabs" id="line-tabs"></div>
+
+    <!-- 노선도 -->
+    <div class="route-map hidden" id="route-map">
+      <div class="route-header">
+        <span class="route-title" id="route-title"></span>
+        <span class="route-tip">역을 클릭하면 실시간 도착정보를 조회합니다</span>
+      </div>
+      <div class="route-scroll">
+        <div class="route-track" id="route-track"></div>
+      </div>
+    </div>
+
     <!-- 검색창 -->
     <div class="search-wrap">
       <div class="search-box">
         <input
           type="text"
           id="station-input"
-          placeholder="역 이름 입력 (예: 강남, 홍대입구, 서울역)"
+          placeholder="역 이름 직접 검색 (예: 강남, 홍대입구)"
           autocomplete="off"
         />
         <button id="search-btn">조회</button>
