@@ -1,5 +1,11 @@
 const API_KEY = "586a476a4867616d3132324e58585549";
-const PROXY   = "https://api.allorigins.win/raw?url=";
+
+// CORS 프록시 목록 (순서대로 시도)
+const PROXIES = [
+  url => url,                                                          // 직접 호출
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,          // corsproxy.io
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, // allorigins
+];
 
 const LINE_COLOR = {
   "1001":"#0052A4","1002":"#009D3E","1003":"#EF7C1C","1004":"#00A2D1",
@@ -158,28 +164,41 @@ async function fetchArrivals(station) {
   showStatus("⏳ " + stationLabel(station) + " 정보를 불러오는 중...", false);
   clearTimers();
 
-  try {
-    const apiUrl = `https://swopenapi.seoul.go.kr/api/subway/${API_KEY}/json/realtimeStationArrival/0/100/${encodeURIComponent(station)}`;
-    const res    = await fetch(PROXY + encodeURIComponent(apiUrl));
-    if (!res.ok) throw new Error("네트워크 오류");
-    const data = await res.json();
+  const apiUrl = `https://swopenapi.seoul.go.kr/api/subway/${API_KEY}/json/realtimeStationArrival/0/100/${encodeURIComponent(station)}`;
+  let data = null;
 
-    if (data.errorMessage) {
-      const code = data.errorMessage.code;
-      if (code === "INFO-200") { showStatus("❌ 역을 찾을 수 없습니다. 역 이름을 다시 확인해주세요.", true); return; }
-      if (code !== "INFO-000") { showStatus(`❌ API 오류: ${data.errorMessage.message}`, true); return; }
+  for (const makeUrl of PROXIES) {
+    try {
+      const res = await fetch(makeUrl(apiUrl), { signal: AbortSignal.timeout(6000) });
+      if (!res.ok) continue;
+      const json = await res.json();
+      // 정상 응답이면 사용
+      if (json.realtimeArrivalList !== undefined || json.errorMessage) {
+        data = json;
+        break;
+      }
+    } catch (e) {
+      continue; // 다음 프록시 시도
     }
-
-    const list = data.realtimeArrivalList || [];
-    if (!list.length) { showStatus("🚫 현재 운행 정보가 없습니다. (운행 종료 또는 역명 확인)", false); return; }
-
-    renderCards(list, station);
-    startAutoRefresh();
-
-  } catch (err) {
-    showStatus("❌ 데이터를 불러오지 못했습니다. API 키를 확인하거나 잠시 후 다시 시도해주세요.", true);
-    console.error(err);
   }
+
+  if (!data) {
+    showStatus("❌ 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.", true);
+    return;
+  }
+
+  if (data.errorMessage) {
+    const code = data.errorMessage.code;
+    if (code === "INFO-200") { showStatus("❌ 역을 찾을 수 없습니다. 역 이름을 다시 확인해주세요.", true); return; }
+    if (code === "INFO-001") { showStatus("❌ API 키가 올바르지 않습니다. data.seoul.go.kr 키를 확인해주세요.", true); return; }
+    if (code !== "INFO-000") { showStatus(`❌ API 오류 (${code}): ${data.errorMessage.message}`, true); return; }
+  }
+
+  const list = data.realtimeArrivalList || [];
+  if (!list.length) { showStatus("🚫 현재 운행 정보가 없습니다. (운행 종료 또는 역명 확인)", false); return; }
+
+  renderCards(list, station);
+  startAutoRefresh();
 }
 
 // ── 카드 렌더링 ──
