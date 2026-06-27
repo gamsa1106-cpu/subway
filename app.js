@@ -1,5 +1,5 @@
-// API 키는 Vercel 환경변수에 저장 (코드에 노출 안 됨)
-// 로컬 개발 시: SEOUL_API_KEY 환경변수 설정
+const API_KEY = "586a476a4867616d3132324e58585549";
+const PROXY   = "https://corsproxy.io/?";
 
 const LINE_COLOR = {
   "1001":"#0052A4","1002":"#009D3E","1003":"#EF7C1C","1004":"#00A2D1",
@@ -158,13 +158,14 @@ async function fetchArrivals(station) {
   showStatus("⏳ " + stationLabel(station) + " 정보를 불러오는 중...", false);
   clearTimers();
 
+  const apiUrl = `https://swopenapi.seoul.go.kr/api/subway/${API_KEY}/json/realtimeStationArrival/0/100/${encodeURIComponent(station)}`;
   let data = null;
   try {
-    const res = await fetch(`/api/arrival?station=${encodeURIComponent(station)}`);
-    if (!res.ok) throw new Error("응답 오류 " + res.status);
+    const res = await fetch(PROXY + encodeURIComponent(apiUrl));
+    if (!res.ok) throw new Error(res.status);
     data = await res.json();
   } catch (e) {
-    showStatus("❌ 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.", true);
+    showStatus("❌ 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.", true);
     return;
   }
 
