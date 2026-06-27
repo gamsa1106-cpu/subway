@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>서울 지하철 실시간 도착정보</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>🚇 서울 지하철 실시간 도착정보</h1>
+        <p id="last-updated">역 이름을 검색하세요</p>
+      </div>
+      <div class="badge">서울 열린데이터 광장</div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- 검색창 -->
+    <div class="search-wrap">
+      <div class="search-box">
+        <input
+          type="text"
+          id="station-input"
+          placeholder="역 이름 입력 (예: 강남, 홍대입구, 서울역)"
+          autocomplete="off"
+        />
+        <button id="search-btn">조회</button>
+      </div>
+      <ul class="suggest-list" id="suggest-list"></ul>
+    </div>
+
+    <!-- 상태 메시지 -->
+    <div id="status-msg" class="status-msg hidden"></div>
+
+    <!-- 새로고침 -->
+    <div class="refresh-bar hidden" id="refresh-bar">
+      <span id="refresh-info"></span>
+      <button id="refresh-btn">🔄 새로고침</button>
+    </div>
+
+    <!-- 결과 -->
+    <section class="arrival-grid" id="arrival-grid"></section>
+
+  </main>
+
+  <footer>
+    <p>데이터 출처: 서울 열린데이터 광장 · 실시간 자동 갱신 (30초)</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
