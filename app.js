@@ -171,26 +171,31 @@ async function fetchArrivals(station) {
   showStatus("⏳ " + stationLabel(station) + " 정보를 불러오는 중...", false);
   clearTimers();
 
-  const apiUrl = `https://swopenapi.seoul.go.kr/api/subway/${API_KEY}/json/realtimeStationArrival/0/100/${encodeURIComponent(station)}`;
+  const base = `/api/subway/${API_KEY}/json/realtimeStationArrival/0/100/${encodeURIComponent(station)}`;
+  const httpUrl  = `http://swopenapi.seoul.go.kr${base}`;
+  const httpsUrl = `https://swopenapi.seoul.go.kr${base}`;
 
-  // 프록시 목록 (URL 인코딩 하지 않고 그대로 붙임)
   const proxies = [
-    apiUrl,
-    `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
-    `https://proxy.cors.sh/${apiUrl}`,
+    `https://corsproxy.io/?url=${encodeURIComponent(httpsUrl)}`,
+    `https://corsproxy.io/?url=${encodeURIComponent(httpUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(httpUrl)}`,
+    `https://thingproxy.freeboard.io/fetch/${httpUrl}`,
   ];
 
   let data = null;
   for (const url of proxies) {
     try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
+      const ctrl = new AbortController();
+      const tid  = setTimeout(() => ctrl.abort(), 6000);
+      const res  = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(tid);
+      if (!res.ok) { console.warn("[subway] proxy", res.status, url); continue; }
       const json = await res.json();
       if (json.realtimeArrivalList !== undefined || json.errorMessage) {
         data = json; break;
       }
-    } catch (e) { continue; }
+      console.warn("[subway] unexpected response keys:", Object.keys(json), url);
+    } catch (e) { console.warn("[subway] proxy error:", e.message, url); continue; }
   }
 
   // 모든 프록시 실패 → 데모 모드
