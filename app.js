@@ -175,8 +175,10 @@ async function fetchArrivals(station) {
 
   // 프록시 목록 (URL 인코딩 하지 않고 그대로 붙임)
   const proxies = [
-    `https://corsproxy.io/?${apiUrl}`,
+    apiUrl,
+    `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}`,
     `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
+    `https://proxy.cors.sh/${apiUrl}`,
   ];
 
   let data = null;
