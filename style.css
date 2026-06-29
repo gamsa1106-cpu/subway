@@ -680,6 +680,32 @@ footer {
   transition: background .2s;
 }
 .swap-btn:hover { background: #e0e2e5; }
+
+/* 최단시간/최소환승 토글 */
+.route-mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.route-mode-btn {
+  flex: 1;
+  padding: 9px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  color: #666;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+}
+.route-mode-btn.active {
+  background: #e8f0fe;
+  border-color: #1a1a2e;
+  color: #1a1a2e;
+}
+.route-mode-btn:hover:not(.active) { border-color: #999; }
+
 .btn-find-route {
   width: 100%;
   padding: 13px;

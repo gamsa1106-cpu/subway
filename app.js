@@ -2,18 +2,23 @@ const API_KEY = "586a476a4867616d3132324e58585549";
 const PROXY   = "https://corsproxy.io/?";
 
 const LINE_COLOR = {
-  "1001":"#0052A4","1002":"#009D3E","1003":"#EF7C1C","1004":"#00A2D1",
+  "1001":"#0052A4","1001k":"#0052A4",
+  "1002":"#009D3E","1003":"#EF7C1C","1004":"#00A2D1",
   "1005":"#996CAC","1006":"#CD7C2F","1007":"#747F00","1008":"#E6186C",
   "1009":"#9E8A63","1063":"#77C4A3","1065":"#0090D2","1067":"#D31145",
   "1075":"#F5A200","1077":"#B0CE18","1092":"#6789CA","1093":"#8FC31F"
 };
 
 const LINE_LABEL = {
-  "1001":"1호선","1002":"2호선","1003":"3호선","1004":"4호선",
+  "1001":"1호선","1001k":"1호선",
+  "1002":"2호선","1003":"3호선","1004":"4호선",
   "1005":"5호선","1006":"6호선","1007":"7호선","1008":"8호선",
   "1009":"9호선","1063":"경의중앙선","1065":"공항철도","1067":"신분당선",
   "1075":"수인분당선","1077":"우이신설선","1092":"신림선","1093":"서해선"
 };
+
+// 탭·노선도에는 표시하지 않지만 경로 탐색에 사용하는 숨김 노선
+const LINE_HIDDEN = new Set(["1001k"]);
 
 // 환승역 (여러 노선이 지나는 주요역)
 const TRANSFER = new Set([
@@ -30,7 +35,10 @@ const TRANSFER = new Set([
 
 // 노선별 역 목록
 const LINE_STATIONS = {
-  "1001": ["소요산","동두천","보산","동두천중앙","지행","덕정","덕계","양주","녹양","가능","의정부","회룡","망월사","도봉산","도봉","방학","창동","녹천","월계","광운대","석계","신이문","외대앞","회기","청량리","제기동","신설동","동묘앞","동대문","종로5가","종로3가","종각","시청","서울역","남영","용산","노량진","대방","신길","영등포","신도림","구로","구일","개봉","오류동","온수","역곡","소사","부천","중동","송내","부개","부평","백운","동암","간석","주안","도화","제물포","도원","동인천","인천","가산디지털단지","독산","금천구청","석수","관악","안양","명학","금정","군포","당정","의왕","성균관대","화서","수원","세류","병점","세마","오산대","오산","진위","송탄","서정리","지제","평택","성환","직산","두정","천안","봉명","쌍용","아산","탕정","배방","온양온천","신창"],
+  // 1호선 경부선·경원선 (구로↔가산디지털단지 직결 — 경인선은 1001k로 분리)
+  "1001": ["소요산","동두천","보산","동두천중앙","지행","덕정","덕계","양주","녹양","가능","의정부","회룡","망월사","도봉산","도봉","방학","창동","녹천","월계","광운대","석계","신이문","외대앞","회기","청량리","제기동","신설동","동묘앞","동대문","종로5가","종로3가","종각","시청","서울역","남영","용산","노량진","대방","신길","영등포","신도림","구로","가산디지털단지","독산","금천구청","석수","관악","안양","명학","금정","군포","당정","의왕","성균관대","화서","수원","세류","병점","세마","오산대","오산","진위","송탄","서정리","지제","평택","성환","직산","두정","천안","봉명","쌍용","아산","탕정","배방","온양온천","신창"],
+  // 1호선 경인선 (구로~인천) — 탭 비표시, 경로 탐색 전용
+  "1001k": ["구로","구일","개봉","오류동","온수","역곡","소사","부천","중동","송내","부개","부평","백운","동암","간석","주안","도화","제물포","도원","동인천","인천"],
   "1002": ["시청","을지로입구","을지로3가","을지로4가","동대문역사문화공원","신당","상왕십리","왕십리","한양대","뚝섬","성수","건대입구","구의","강변","잠실나루","잠실","잠실새내","종합운동장","삼성","선릉","역삼","강남","교대","서초","방배","사당","낙성대","서울대입구","봉천","신림","신대방","구로디지털단지","대림","신도림","문래","영등포구청","당산","합정","홍대입구","신촌","이대","아현","충정로","시청"],
   "1003": ["대화","주엽","정발산","마두","백석","대곡","화정","원당","원흥","삼송","지축","구파발","연신내","불광","녹번","홍제","무악재","독립문","경복궁","안국","종로3가","을지로3가","충무로","동대입구","약수","금호","옥수","압구정","신사","잠원","고속터미널","교대","남부터미널","양재","매봉","도곡","대치","학여울","대청","일원","수서","가락시장","경찰병원","오금"],
   "1004": ["당고개","상계","노원","창동","쌍문","수유","미아","미아사거리","길음","성신여대입구","한성대입구","혜화","동대문","동대문역사문화공원","충무로","명동","회현","서울역","숙대입구","삼각지","신용산","이촌","동작","총신대입구","사당","남태령","선바위","경마공원","대공원","과천","정부과천청사","인덕원","평촌","범계","금정","산본","수리산","대야미","반월","상록수","한대앞","중앙","고잔","초지","안산","신길온천","정왕","오이도"],
@@ -134,10 +142,12 @@ const scheduleBtn     = document.getElementById("schedule-btn");
 
 // ── 노선 탭 초기화 ──
 function initLineMenu() {
-  lineTabs.innerHTML = Object.entries(LINE_LABEL).map(([id, name]) => {
-    const c = LINE_COLOR[id];
-    return `<button class="line-tab" data-line="${id}" style="--lc:${c}">${name}</button>`;
-  }).join("");
+  lineTabs.innerHTML = Object.entries(LINE_LABEL)
+    .filter(([id]) => !LINE_HIDDEN.has(id))
+    .map(([id, name]) => {
+      const c = LINE_COLOR[id];
+      return `<button class="line-tab" data-line="${id}" style="--lc:${c}">${name}</button>`;
+    }).join("");
 
   lineTabs.querySelectorAll(".line-tab").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -537,18 +547,36 @@ document.getElementById("swap-btn").addEventListener("click", () => {
   document.getElementById("route-to").value   = a;
 });
 
+// 경로 검색 모드: "time"=최단시간, "transfer"=최소환승
+let routeMode = "time";
+
+document.getElementById("mode-time-btn").addEventListener("click", () => {
+  routeMode = "time";
+  document.getElementById("mode-time-btn").classList.add("active");
+  document.getElementById("mode-transfer-btn").classList.remove("active");
+});
+document.getElementById("mode-transfer-btn").addEventListener("click", () => {
+  routeMode = "transfer";
+  document.getElementById("mode-transfer-btn").classList.add("active");
+  document.getElementById("mode-time-btn").classList.remove("active");
+});
+
 document.getElementById("find-route-btn").addEventListener("click", () => {
   const from = document.getElementById("route-from").value.trim().replace(/역$/, "");
   const to   = document.getElementById("route-to").value.trim().replace(/역$/, "");
   if (!from || !to) { alert("출발역과 도착역을 입력해주세요."); return; }
   if (from === to)  { alert("출발역과 도착역이 같습니다."); return; }
-  const result = findRoute(from, to);
+  const result = findRoute(from, to, routeMode);
   renderRouteResult(result, from, to);
 });
 
 // ── 경로 탐색 (Dijkstra) ──
-function findRoute(startStation, endStation) {
-  // 인접 그래프 구성: 노드 = "역명::노선ID"
+function findRoute(startStation, endStation, mode = "time") {
+  // 같은 노선명(예: 1호선↔1호선) 환승: 2분 (열차 방향만 바꾸는 수준)
+  // 다른 노선 환승: 최단시간=4분, 최소환승=999분(사실상 차단)
+  const sameLineCost  = 2;
+  const xferCost      = mode === "transfer" ? 999 : 4;
+
   const adj = new Map();
 
   for (const [lineId, stations] of Object.entries(LINE_STATIONS)) {
@@ -564,7 +592,7 @@ function findRoute(startStation, endStation) {
     }
   }
 
-  // 환승 엣지: 같은 역명, 다른 노선
+  // 환승 엣지: 같은 역명, 다른 노선ID
   const stationLines = {};
   for (const [lineId, stations] of Object.entries(LINE_STATIONS)) {
     for (const s of stations) {
@@ -577,15 +605,17 @@ function findRoute(startStation, endStation) {
       for (let j = i + 1; j < arr.length; j++) {
         const a = `${station}::${arr[i]}`;
         const b = `${station}::${arr[j]}`;
-        if (adj.has(a) && adj.has(b)) {
-          adj.get(a).push({ to: b, cost: 4, type: "transfer" });
-          adj.get(b).push({ to: a, cost: 4, type: "transfer" });
-        }
+        if (!adj.has(a) || !adj.has(b)) continue;
+        // 같은 노선명이면 저비용 (예: 1001 경부선 ↔ 1001k 경인선 @ 구로)
+        const sameName = LINE_LABEL[arr[i]] === LINE_LABEL[arr[j]];
+        const cost = sameName ? sameLineCost : xferCost;
+        const type = sameName ? "same-line" : "transfer";
+        adj.get(a).push({ to: b, cost, type });
+        adj.get(b).push({ to: a, cost, type });
       }
     }
   }
 
-  // Dijkstra
   const dist = {};
   const prev = {};
   const queue = [];
@@ -621,7 +651,6 @@ function findRoute(startStation, endStation) {
 }
 
 function buildSegments(prev, endKey) {
-  // 역방향으로 경로 복원
   const steps = [];
   let cur = endKey;
   while (prev[cur]) {
@@ -629,25 +658,38 @@ function buildSegments(prev, endKey) {
     cur = prev[cur].from;
   }
 
-  // 노선별 구간으로 묶기
-  const segments = [];
+  // 노선ID별로 구간 분리
+  const raw = [];
   let seg = null;
-
   for (const { to, from, edge } of steps) {
     const [fromName] = from.split("::");
     const [toName, toLine] = to.split("::");
 
-    if (edge.type === "transfer") {
-      if (seg) { segments.push(seg); seg = null; }
+    if (edge.type === "transfer" || edge.type === "same-line") {
+      if (seg) { raw.push(seg); seg = null; }
       continue;
     }
     if (!seg || seg.lineId !== toLine) {
-      if (seg) segments.push(seg);
+      if (seg) raw.push(seg);
       seg = { lineId: toLine, stations: [fromName] };
     }
     seg.stations.push(toName);
   }
-  if (seg) segments.push(seg);
+  if (seg) raw.push(seg);
+
+  // 같은 노선명 연속 구간 병합 (예: 1001k 경인선 + 1001 경부선 → "1호선" 하나로)
+  const segments = [];
+  for (const s of raw) {
+    const last = segments[segments.length - 1];
+    if (last && LINE_LABEL[last.lineId] === LINE_LABEL[s.lineId]) {
+      // 중복 접점역(구로 등) 제거 후 병합
+      const extra = s.stations[0] === last.stations[last.stations.length - 1]
+        ? s.stations.slice(1) : s.stations;
+      last.stations.push(...extra);
+    } else {
+      segments.push({ ...s, stations: [...s.stations] });
+    }
+  }
 
   let totalTime = 0, totalStops = 0;
   const transfers = Math.max(0, segments.length - 1);
@@ -682,7 +724,7 @@ function renderRouteResult(result, from, to) {
   const { segments, totalTime, totalStops, transfers } = result;
 
   const segHtml = segments.map((seg, idx) => {
-    const isLast = idx === segments.length - 1;
+    const isLast  = idx === segments.length - 1;
     const nextSeg = segments[idx + 1];
 
     const stopsHtml = seg.stations.map((s, i) => {
@@ -691,7 +733,7 @@ function renderRouteResult(result, from, to) {
       const cls     = isFirst ? "dep" : isEnd ? "arr" : "mid";
       const label   = isFirst ? "출발" : isEnd && isLast ? "도착" : isEnd ? "환승" : "";
       return `
-        <div class="rseg-stop ${cls}">
+        <div class="rseg-stop ${cls}" style="--lc:${seg.color}">
           <div class="rseg-dot"></div>
           <span class="rseg-name">${stationLabel(s)}</span>
           ${label ? `<span class="rseg-badge ${cls}">${label}</span>` : ""}
@@ -700,7 +742,6 @@ function renderRouteResult(result, from, to) {
 
     const transferHtml = !isLast ? `
       <div class="rtransfer">
-        <div class="rtransfer-line"></div>
         <span class="rtransfer-label">🔁 ${stationLabel(seg.to)} 환승 → ${nextSeg.lineName} 승차 (약 4분)</span>
       </div>` : "";
 
@@ -710,7 +751,7 @@ function renderRouteResult(result, from, to) {
           <span class="line-chip" style="background:${seg.color}">${seg.lineName}</span>
           <span class="rseg-desc">${stationLabel(seg.from)} → ${stationLabel(seg.to)} · ${seg.stops}개 정거장</span>
         </div>
-        <div class="rseg-stops">${stopsHtml}</div>
+        <div class="rseg-stops" style="--lc:${seg.color}">${stopsHtml}</div>
       </div>
       ${transferHtml}`;
   }).join("");
@@ -719,7 +760,7 @@ function renderRouteResult(result, from, to) {
     <div class="route-result-box">
       <div class="route-summary">
         <div class="route-time">약 ${totalTime}분</div>
-        <div class="route-meta">${totalStops}개 정거장${transfers > 0 ? ` · 환승 ${transfers}회` : " · 환승 없음"}</div>
+        <div class="route-meta">${totalStops}개 정거장 · 환승 ${transfers}회</div>
       </div>
       ${segHtml}
     </div>`;
