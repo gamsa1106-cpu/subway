@@ -172,9 +172,10 @@ function renderRouteMap(lineId) {
   routeTrack.innerHTML = stations.map((s, i) => {
     const isTransfer = TRANSFER.has(s);
     const isEnd      = i === 0 || i === stations.length - 1;
+    const dotCls     = isTransfer ? "transfer" : isEnd ? "terminus" : "";
     return `
       <div class="station-stop" onclick="selectStation('${s}')">
-        <div class="station-dot ${isTransfer || isEnd ? "transfer" : ""}"></div>
+        <div class="station-dot${dotCls ? " " + dotCls : ""}"></div>
         <div class="station-name">${s}</div>
       </div>`;
   }).join("");
