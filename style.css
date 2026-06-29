@@ -681,30 +681,6 @@ footer {
 }
 .swap-btn:hover { background: #e0e2e5; }
 
-/* 최단시간/최소환승 토글 */
-.route-mode-toggle {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.route-mode-btn {
-  flex: 1;
-  padding: 9px;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  background: white;
-  color: #666;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .2s;
-}
-.route-mode-btn.active {
-  background: #e8f0fe;
-  border-color: #1a1a2e;
-  color: #1a1a2e;
-}
-.route-mode-btn:hover:not(.active) { border-color: #999; }
 
 .btn-find-route {
   width: 100%;
@@ -720,118 +696,197 @@ footer {
 }
 .btn-find-route:hover { opacity: .88; }
 
-/* ── 경로 결과 ── */
-.route-result-box {
-  background: white;
-  border-radius: 14px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-  overflow: hidden;
-}
-.route-summary {
-  background: linear-gradient(135deg, #1a1a2e, #16213e);
-  color: white;
-  padding: 18px 20px;
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-.route-time {
-  font-size: 1.8rem;
-  font-weight: 800;
-}
-.route-meta {
-  font-size: 0.9rem;
-  opacity: .75;
-}
-
-/* 구간 */
-.rsegment {
-  padding: 16px 20px 10px;
-  border-bottom: 1px solid #f0f2f5;
-}
-.rseg-header {
+/* ── 출발/도착 헤더 ── */
+.rc-from-to {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  padding: 14px 4px 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #222;
 }
-.rseg-desc {
-  font-size: 0.85rem;
-  color: #555;
+.rc-station { flex: 1; text-align: center; }
+.rc-arrow { color: #aaa; font-size: 1.1rem; }
+
+/* ── 경로 결과 카드 ── */
+.rc-card {
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  margin-bottom: 14px;
+  overflow: hidden;
 }
 
-/* 정거장 목록 */
-.rseg-stops {
-  position: relative;
-  padding-left: 28px;
+/* 카드 헤더: 시간 + 배지 */
+.rc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 10px;
 }
-.rseg-stops::before {
+.rc-left { display: flex; align-items: baseline; gap: 10px; }
+.rc-time { font-size: 1.6rem; color: #111; }
+.rc-time strong { font-weight: 800; }
+.rc-meta { font-size: 0.82rem; color: #888; }
+.rc-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 50px;
+}
+.rc-badge.best { background: #e8f5e9; color: #2e7d32; }
+.rc-badge.xfer { background: #e3f2fd; color: #1565c0; }
+
+/* ── 구간 바 ── */
+.jbar {
+  display: flex;
+  align-items: center;
+  height: 10px;
+  margin: 0 18px 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  gap: 0;
+}
+.jbar-seg {
+  height: 100%;
+  min-width: 12px;
+  border-radius: 0;
+  transition: opacity .2s;
+}
+.jbar-seg:first-child { border-radius: 6px 0 0 6px; }
+.jbar-seg:last-child  { border-radius: 0 6px 6px 0; }
+.jbar-xfer {
+  width: 6px;
+  height: 10px;
+  background: white;
+  flex-shrink: 0;
+}
+
+/* 노선 라벨 줄 */
+.jlabels {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 18px 12px;
+  flex-wrap: wrap;
+}
+.jlabel-chip {
+  color: white;
+  font-size: 0.73rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 50px;
+}
+.jlabel-arr { color: #bbb; font-size: 0.9rem; }
+
+/* 접기/펼치기 버튼 */
+.rc-toggle {
+  width: 100%;
+  padding: 10px 18px;
+  background: #f8f9fa;
+  border: none;
+  border-top: 1px solid #eee;
+  font-size: 0.82rem;
+  color: #555;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 600;
+  transition: background .15s;
+}
+.rc-toggle:hover { background: #eee; }
+
+/* 상세 역 목록 (기본 숨김) */
+.rc-detail {
+  display: none;
+  border-top: 1px solid #f0f2f5;
+  padding: 16px 18px;
+  background: #fafafa;
+}
+.rc-detail.open { display: block; }
+
+/* 구간 블록 */
+.sd-segment { margin-bottom: 4px; }
+.sd-seg-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.sd-seg-desc { font-size: 0.83rem; color: #555; }
+
+/* 정거장 세로 목록 */
+.sd-stops {
+  position: relative;
+  padding-left: 26px;
+}
+.sd-stops::before {
   content: '';
   position: absolute;
-  left: 8px;
+  left: 7px;
   top: 10px;
   bottom: 10px;
   width: 3px;
   background: var(--lc, #888);
   border-radius: 2px;
 }
-.rseg-stop {
+.sd-stop {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 5px 0;
   position: relative;
 }
-.rseg-dot {
+.sd-dot {
   position: absolute;
-  left: -24px;
-  width: 12px;
-  height: 12px;
+  left: -22px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: white;
   border: 2.5px solid var(--lc, #888);
-  flex-shrink: 0;
 }
-.rseg-stop.dep .rseg-dot,
-.rseg-stop.arr .rseg-dot {
-  width: 14px;
-  height: 14px;
-  left: -25px;
+.sd-stop.dep .sd-dot,
+.sd-stop.arr .sd-dot {
   background: var(--lc, #888);
+  width: 13px;
+  height: 13px;
+  left: -23px;
 }
-.rseg-name {
-  font-size: 0.92rem;
-  color: #333;
-}
-.rseg-stop.dep .rseg-name,
-.rseg-stop.arr .rseg-name {
+.sd-name { font-size: 0.9rem; color: #333; }
+.sd-stop.dep .sd-name,
+.sd-stop.arr .sd-name { font-weight: 700; }
+.sd-stop.mid .sd-name { color: #777; }
+.sd-badge {
+  font-size: 0.7rem;
   font-weight: 700;
-  font-size: 0.98rem;
-}
-.rseg-stop.mid .rseg-name { color: #666; }
-.rseg-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 50px;
 }
-.rseg-badge.dep { background: #e8f5e9; color: #2e7d32; }
-.rseg-badge.arr { background: #fce4ec; color: #c62828; }
+.sd-badge.dep { background: #e8f5e9; color: #2e7d32; }
+.sd-badge.arr { background: #fce4ec; color: #c62828; }
+.sd-badge.arr.arr { background: #fce4ec; color: #c62828; }
 
 /* 환승 표시 */
-.rtransfer {
+.sd-xfer {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 20px;
+  padding: 10px 12px;
+  margin: 8px 0;
   background: #fffde7;
-  border-top: 1px dashed #ffe082;
-  border-bottom: 1px dashed #ffe082;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #555;
 }
-.rtransfer-label {
-  font-size: 0.83rem;
-  color: #795548;
-  font-weight: 600;
+.sd-xfer-icon {
+  background: #ff9800;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 /* 경로 없음 */

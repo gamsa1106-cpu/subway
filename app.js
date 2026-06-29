@@ -547,27 +547,15 @@ document.getElementById("swap-btn").addEventListener("click", () => {
   document.getElementById("route-to").value   = a;
 });
 
-// 경로 검색 모드: "time"=최단시간, "transfer"=최소환승
-let routeMode = "time";
-
-document.getElementById("mode-time-btn").addEventListener("click", () => {
-  routeMode = "time";
-  document.getElementById("mode-time-btn").classList.add("active");
-  document.getElementById("mode-transfer-btn").classList.remove("active");
-});
-document.getElementById("mode-transfer-btn").addEventListener("click", () => {
-  routeMode = "transfer";
-  document.getElementById("mode-transfer-btn").classList.add("active");
-  document.getElementById("mode-time-btn").classList.remove("active");
-});
-
 document.getElementById("find-route-btn").addEventListener("click", () => {
   const from = document.getElementById("route-from").value.trim().replace(/역$/, "");
   const to   = document.getElementById("route-to").value.trim().replace(/역$/, "");
   if (!from || !to) { alert("출발역과 도착역을 입력해주세요."); return; }
   if (from === to)  { alert("출발역과 도착역이 같습니다."); return; }
-  const result = findRoute(from, to, routeMode);
-  renderRouteResult(result, from, to);
+
+  const rTime = findRoute(from, to, "time");
+  const rXfer = findRoute(from, to, "transfer");
+  renderRouteResults(rTime, rXfer, from, to);
 });
 
 // ── 경로 탐색 (Dijkstra) ──
@@ -707,63 +695,128 @@ function buildSegments(prev, endKey) {
   return { segments, totalTime, totalStops, transfers };
 }
 
-// ── 경로 결과 렌더링 ──
-function renderRouteResult(result, from, to) {
+// ── 경로 바 시각화 ──
+function buildJourneyBar(segments) {
+  const total = segments.reduce((s, g) => s + g.stops, 0) || 1;
+  return segments.map((seg, idx) => {
+    const pct = (seg.stops / total * 100).toFixed(1);
+    const xfer = idx < segments.length - 1
+      ? `<div class="jbar-xfer"></div>` : "";
+    return `<div class="jbar-seg" style="flex:${seg.stops};background:${seg.color};" title="${seg.lineName} ${seg.stops}정거장"></div>${xfer}`;
+  }).join("");
+}
+
+// 세그먼트 라벨 (1호선 → 2호선 형태)
+function buildLineLabel(segments) {
+  return segments.map((seg, idx) => {
+    const chip = `<span class="jlabel-chip" style="background:${seg.color}">${seg.lineName}</span>`;
+    const arr  = idx < segments.length - 1 ? `<span class="jlabel-arr">→</span>` : "";
+    return chip + arr;
+  }).join("");
+}
+
+// 접이식 역 상세 목록
+function buildStopDetail(segments) {
+  return segments.map((seg, idx) => {
+    const isLast = idx === segments.length - 1;
+    const nextSeg = segments[idx + 1];
+
+    const stops = seg.stations.map((s, i) => {
+      const isFirst = i === 0;
+      const isEnd   = i === seg.stations.length - 1;
+      const cls = isFirst ? "dep" : isEnd ? "arr" : "mid";
+      const badge = isFirst ? "출발" : (isEnd && isLast) ? "도착" : isEnd ? "환승" : "";
+      return `
+        <div class="sd-stop ${cls}" style="--lc:${seg.color}">
+          <div class="sd-dot"></div>
+          <span class="sd-name">${stationLabel(s)}</span>
+          ${badge ? `<span class="sd-badge ${cls}">${badge}</span>` : ""}
+        </div>`;
+    }).join("");
+
+    const xfer = !isLast ? `
+      <div class="sd-xfer">
+        <div class="sd-xfer-icon">환승</div>
+        <span>${stationLabel(seg.to)}에서 <strong style="color:${nextSeg.color}">${nextSeg.lineName}</strong> 승차 · 약 4분</span>
+      </div>` : "";
+
+    return `
+      <div class="sd-segment" style="--lc:${seg.color}">
+        <div class="sd-seg-title">
+          <span class="line-chip" style="background:${seg.color}">${seg.lineName}</span>
+          <span class="sd-seg-desc">${stationLabel(seg.from)} → ${stationLabel(seg.to)} · ${seg.stops}개 정거장</span>
+        </div>
+        <div class="sd-stops">${stops}</div>
+      </div>
+      ${xfer}`;
+  }).join("");
+}
+
+// 카드 하나 생성
+let cardUid = 0;
+function buildRouteCard(result, badgeLabel, badgeClass) {
+  if (!result) return "";
+  const { segments, totalTime, totalStops, transfers } = result;
+  const uid = ++cardUid;
+
+  return `
+    <div class="rc-card">
+      <div class="rc-header">
+        <div class="rc-left">
+          <span class="rc-time"><strong>${totalTime}</strong>분</span>
+          <span class="rc-meta">${totalStops}개 정거장 · 환승 ${transfers}회</span>
+        </div>
+        <span class="rc-badge ${badgeClass}">${badgeLabel}</span>
+      </div>
+
+      <div class="jbar">${buildJourneyBar(segments)}</div>
+      <div class="jlabels">${buildLineLabel(segments)}</div>
+
+      <button class="rc-toggle" onclick="
+        const d=document.getElementById('rc-detail-${uid}');
+        const b=this;
+        if(d.classList.toggle('open')){b.textContent='▲ 경로 접기';}
+        else{b.textContent='▼ 상세 경로 보기';}
+      ">▼ 상세 경로 보기</button>
+
+      <div class="rc-detail" id="rc-detail-${uid}">
+        ${buildStopDetail(segments)}
+      </div>
+    </div>`;
+}
+
+// ── 두 경로 동시 렌더링 ──
+function renderRouteResults(rTime, rXfer, from, to) {
   const el = document.getElementById("route-result");
 
-  if (!result) {
+  if (!rTime && !rXfer) {
     el.innerHTML = `
       <div class="route-no-result">
         <div>😥</div>
-        <p><strong>${stationLabel(from)}</strong> → <strong>${stationLabel(to)}</strong> 경로를 찾을 수 없어요.</p>
-        <p>역 이름을 다시 확인해주세요.</p>
+        <p><strong>${stationLabel(from)}</strong> → <strong>${stationLabel(to)}</strong></p>
+        <p>경로를 찾을 수 없어요. 역 이름을 확인해주세요.</p>
       </div>`;
     return;
   }
 
-  const { segments, totalTime, totalStops, transfers } = result;
+  // 두 결과가 동일하면 하나만 표시
+  const sameRoute = rTime && rXfer && rTime.transfers === rXfer.transfers && rTime.totalTime === rXfer.totalTime;
 
-  const segHtml = segments.map((seg, idx) => {
-    const isLast  = idx === segments.length - 1;
-    const nextSeg = segments[idx + 1];
-
-    const stopsHtml = seg.stations.map((s, i) => {
-      const isFirst = i === 0;
-      const isEnd   = i === seg.stations.length - 1;
-      const cls     = isFirst ? "dep" : isEnd ? "arr" : "mid";
-      const label   = isFirst ? "출발" : isEnd && isLast ? "도착" : isEnd ? "환승" : "";
-      return `
-        <div class="rseg-stop ${cls}" style="--lc:${seg.color}">
-          <div class="rseg-dot"></div>
-          <span class="rseg-name">${stationLabel(s)}</span>
-          ${label ? `<span class="rseg-badge ${cls}">${label}</span>` : ""}
-        </div>`;
-    }).join("");
-
-    const transferHtml = !isLast ? `
-      <div class="rtransfer">
-        <span class="rtransfer-label">🔁 ${stationLabel(seg.to)} 환승 → ${nextSeg.lineName} 승차 (약 4분)</span>
-      </div>` : "";
-
-    return `
-      <div class="rsegment">
-        <div class="rseg-header" style="--lc:${seg.color}">
-          <span class="line-chip" style="background:${seg.color}">${seg.lineName}</span>
-          <span class="rseg-desc">${stationLabel(seg.from)} → ${stationLabel(seg.to)} · ${seg.stops}개 정거장</span>
-        </div>
-        <div class="rseg-stops" style="--lc:${seg.color}">${stopsHtml}</div>
-      </div>
-      ${transferHtml}`;
-  }).join("");
-
-  el.innerHTML = `
-    <div class="route-result-box">
-      <div class="route-summary">
-        <div class="route-time">약 ${totalTime}분</div>
-        <div class="route-meta">${totalStops}개 정거장 · 환승 ${transfers}회</div>
-      </div>
-      ${segHtml}
+  cardUid = 0;
+  const header = `
+    <div class="rc-from-to">
+      <span class="rc-station">${stationLabel(from)}</span>
+      <span class="rc-arrow">→</span>
+      <span class="rc-station">${stationLabel(to)}</span>
     </div>`;
+
+  if (sameRoute) {
+    el.innerHTML = header + buildRouteCard(rTime, "최적", "best");
+  } else {
+    el.innerHTML = header
+      + (rTime ? buildRouteCard(rTime, "⏱ 최단시간", "best") : "")
+      + (rXfer && !sameRoute ? buildRouteCard(rXfer, "🔁 최소환승", "xfer") : "");
+  }
 }
 
 // 초기화
