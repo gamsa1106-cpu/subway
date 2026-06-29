@@ -146,21 +146,22 @@ function initLineMenu() {
     .filter(([id]) => !LINE_HIDDEN.has(id))
     .map(([id, name]) => {
       const c = LINE_COLOR[id];
-      return `<button class="line-tab" data-line="${id}" style="--lc:${c}">${name}</button>`;
+      return `<button class="line-tab" data-line="${id}" style="--lc:${c}"><div class="line-tab-bar"></div><span class="line-tab-label">${name}</span></button>`;
     }).join("");
 
   lineTabs.querySelectorAll(".line-tab").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.line;
       if (activeLineId === id) {
-        // 같은 탭 다시 클릭 → 닫기
         btn.classList.remove("active");
         routeMap.classList.add("hidden");
         activeLineId = null;
+        document.documentElement.style.removeProperty("--theme");
       } else {
         lineTabs.querySelectorAll(".line-tab").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         activeLineId = id;
+        document.documentElement.style.setProperty("--theme", LINE_COLOR[id]);
         renderRouteMap(id);
       }
     });
