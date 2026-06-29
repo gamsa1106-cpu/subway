@@ -154,15 +154,8 @@ function initLineMenu() {
 
   lineTabs.innerHTML = `
     <div class="line-row">${numbered.map(makeTab).join("")}</div>
-    <div class="line-row">
-      ${named.map(makeTab).join("")}
-      <button class="line-tab fullmap-tab" id="fullmap-tab-btn">
-        <div class="line-tab-bar"></div><span class="line-tab-label">🗺 전체노선도</span>
-      </button>
-    </div>
+    <div class="line-row">${named.map(makeTab).join("")}</div>
   `;
-
-  document.getElementById("fullmap-tab-btn").addEventListener("click", openFullMap);
 
   lineTabs.querySelectorAll(".line-tab[data-line]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -834,6 +827,8 @@ function renderRouteResults(rTime, rXfer, from, to) {
       + (rXfer && !sameRoute ? buildRouteCard(rXfer, "🔁 최소환승", "xfer") : "");
   }
 }
+
+document.getElementById("fullmap-tab-btn").addEventListener("click", openFullMap);
 
 // ── 전체노선도 모달 ──
 const fmOverlay  = document.getElementById("fm-overlay");
