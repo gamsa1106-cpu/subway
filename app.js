@@ -55,21 +55,24 @@ const ARVL_CD = {
 // 자동완성용 역 전체 목록 (중복 제거)
 const ALL_STATIONS = [...new Set(Object.values(LINE_STATIONS).flat())].sort();
 
-// 이번역 기준으로 전역·전전역 계산
+// 이번역 기준으로 전역·전전역(또는 다음역·다다음역) 계산
+// reversed=true → 열차가 이번역 반대편에서 오는 경우 (이번역→다음역→다다음역 표시)
 function getDisplayStations(lineId, target, trainCurPos) {
   const list = LINE_STATIONS[lineId] || [];
   const ti = list.indexOf(target);
-  if (ti === -1) return { prev1: trainCurPos || '', prev2: '' };
+  if (ti === -1) return { prev1: trainCurPos || '', prev2: '', reversed: false };
   const ci = list.indexOf(trainCurPos);
-  const step = (ci !== -1 && ci > ti) ? 1 : -1;
+  const reversed = ci !== -1 && ci > ti;
+  const step = reversed ? 1 : -1;
   const p1i = ti + step, p2i = p1i + step;
   return {
     prev1: (p1i >= 0 && p1i < list.length) ? list[p1i] : (trainCurPos || ''),
-    prev2: (p2i >= 0 && p2i < list.length) ? list[p2i] : ''
+    prev2: (p2i >= 0 && p2i < list.length) ? list[p2i] : '',
+    reversed
   };
 }
 
-// arvlCd + 잔여초 → 열차 위치 퍼센트 (전전역=8%, 전역=50%, 이번역=92%)
+// 정방향: 전전역=8% → 전역=50% → 이번역=92% (열차가 왼쪽→오른쪽으로 이동)
 function getTrainPct(arvlCd, secs) {
   if (arvlCd === "5") return 8;
   if (arvlCd === "4") return 29;
@@ -80,23 +83,45 @@ function getTrainPct(arvlCd, secs) {
   return m >= 6 ? 60 : m >= 4 ? 68 : m >= 2 ? 78 : secs > 30 ? 86 : 91;
 }
 
+// 반대선: 이번역=8% → 다음역=50% → 다다음역=92% (열차가 오른쪽→왼쪽으로 이동)
+function getTrainPctRev(arvlCd, secs) {
+  if (arvlCd === "5") return 88;
+  if (arvlCd === "4") return 68;
+  if (arvlCd === "3") return 50;
+  if (arvlCd === "0") return 15;
+  if (arvlCd === "1") return 8;
+  const m = Math.floor(secs / 60);
+  return m >= 6 ? 44 : m >= 4 ? 35 : m >= 2 ? 26 : secs > 30 ? 17 : 10;
+}
+
+// trainLineNm에서 급행 여부, 목적지 분리
+function parseTrainName(raw) {
+  const isExpress = raw.includes("급행");
+  const dest = (raw.replace("급행", "").match(/\(([^)]+)\)/) || [])[1] || raw;
+  return { isExpress, dest };
+}
+
 let currentStation = "";
 let countdownTimer = null;
 let countdown      = 30;
 let activeLineId   = null;
+let cachedList     = null;
+let cachedStation  = null;
 
 // DOM
-const input      = document.getElementById("station-input");
-const suggestEl  = document.getElementById("suggest-list");
-const searchBtn  = document.getElementById("search-btn");
-const statusMsg  = document.getElementById("status-msg");
-const refreshBar = document.getElementById("refresh-bar");
-const refreshBtn = document.getElementById("refresh-btn");
-const grid       = document.getElementById("arrival-grid");
-const routeMap   = document.getElementById("route-map");
-const routeTrack = document.getElementById("route-track");
-const routeTitle = document.getElementById("route-title");
-const lineTabs   = document.getElementById("line-tabs");
+const input           = document.getElementById("station-input");
+const suggestEl       = document.getElementById("suggest-list");
+const searchBtn       = document.getElementById("search-btn");
+const statusMsg       = document.getElementById("status-msg");
+const refreshBar      = document.getElementById("refresh-bar");
+const refreshBtn      = document.getElementById("refresh-btn");
+const grid            = document.getElementById("arrival-grid");
+const routeMap        = document.getElementById("route-map");
+const routeTrack      = document.getElementById("route-track");
+const routeTitle      = document.getElementById("route-title");
+const lineTabs        = document.getElementById("line-tabs");
+const scheduleSection = document.getElementById("schedule-section");
+const scheduleBtn     = document.getElementById("schedule-btn");
 
 // ── 노선 탭 초기화 ──
 function initLineMenu() {
@@ -263,31 +288,43 @@ function renderCards(list, station, isDemo = false) {
     grid.before(banner);
   }
 
+  // 시간표 버튼 표시
+  cachedList    = list;
+  cachedStation = station;
+  scheduleSection.classList.add("hidden");
+  scheduleBtn.textContent = "🕐 예정 시간표 보기";
+  scheduleBtn.classList.remove("hidden");
+
   grid.innerHTML = list.map(d => {
-    const lineId   = d.subwayId || "1001";
-    const color    = LINE_COLOR[lineId] || "#999";
-    const lineName = LINE_LABEL[lineId] || d.subwayNm || "";
-    const dest     = (d.trainLineNm || "").replace(/.*?\(/, "").replace(/\).*/, "").trim();
-    const arvlCd   = d.arvlCd || "99";
-    const secs     = parseInt(d.barvlDt) || 0;
-    const isLast   = d.lstcarAt === "1";
+    const lineId              = d.subwayId || "1001";
+    const color               = LINE_COLOR[lineId] || "#999";
+    const lineName            = LINE_LABEL[lineId] || d.subwayNm || "";
+    const { isExpress, dest } = parseTrainName(d.trainLineNm || "");
+    const arvlCd              = d.arvlCd || "99";
+    const secs                = parseInt(d.barvlDt) || 0;
+    const isLast              = d.lstcarAt === "1";
 
-    // 전전역·전역 계산
-    const curPos = (d.arvlMsg3 || "").replace(/역$/, "").trim();
-    const { prev1, prev2 } = getDisplayStations(lineId, station, curPos);
+    // 역 방향 계산 (reversed = 반대선)
+    const curPos              = (d.arvlMsg3 || "").replace(/역$/, "").trim();
+    const { prev1, prev2, reversed } = getDisplayStations(lineId, station, curPos);
 
-    // 열차 위치 퍼센트
-    const p = getTrainPct(arvlCd, secs);
-    const fgWidth = `calc(${Math.min(p, 92)}% - 8%)`;
+    // 열차 위치 퍼센트 & 색상 선 계산
+    const p = reversed ? getTrainPctRev(arvlCd, secs) : getTrainPct(arvlCd, secs);
 
-    // 통과 여부로 도트 색상 결정
-    const p2Passed = p > 20;
-    const p1Passed = p > 52;
+    // 정방향: 왼→오 이동, fg-line = left:8% ~ p%
+    // 반대선: 오→왼 이동, fg-line = p% ~ right:8% (열차가 지나온 오른쪽 구간 색칠)
+    const fgStyle = reversed
+      ? `left:${p}%;right:8%`
+      : `width:calc(${Math.min(p, 92)}% - 8%)`;
 
-    // 전역 상태 레이블
-    const p1Status = arvlCd === "3" ? "출발" : p1Passed ? "통과" : "";
+    // 도트 통과 여부
+    const dot2Passed = reversed ? p < 72 : p > 20;
+    const dot1Passed = reversed ? p < 52 : p > 52;
+    const midStatus  = reversed
+      ? (arvlCd === "3" ? "출발" : dot1Passed ? "통과" : "")
+      : (arvlCd === "3" ? "출발" : dot1Passed ? "통과" : "");
 
-    // 도착 시간
+    // 도착 시간 텍스트
     let minsText, unitText, minsClass;
     if (arvlCd === "0" || arvlCd === "1") {
       minsText = "도착"; unitText = ""; minsClass = "arr-now";
@@ -299,63 +336,126 @@ function renderCards(list, station, isDemo = false) {
       unitText  = "후 도착";
       minsClass = m === 0 ? "arr-now" : m <= 3 ? "arr-soon" : "arr-far";
     }
-
     const arrTime = secs > 0
       ? new Date(Date.now() + secs * 1000).toLocaleTimeString("ko-KR", { hour:"2-digit", minute:"2-digit" })
       : "";
 
+    // 트랙 역 배치 (정방향: 전전역·전역·이번역 / 반대선: 이번역·다음역·다다음역)
+    const leftStop  = reversed
+      ? { name: station, sub: "이번역", cls: "lg", lbl: "this" }
+      : { name: prev2 || "─", sub: "전전역", cls: `sm${dot2Passed ? " passed" : ""}`, lbl: "" };
+    const midStop   = reversed
+      ? { name: prev1 || "─", sub: "다음역", cls: `md${dot1Passed ? " passed" : ""}`, lbl: "", status: midStatus }
+      : { name: prev1 || "─", sub: "전역",   cls: `md${dot1Passed ? " passed" : ""}`, lbl: "", status: midStatus };
+    const rightStop = reversed
+      ? { name: prev2 || "─", sub: "다다음역", cls: `sm${dot2Passed ? " passed" : ""}`, lbl: "" }
+      : { name: station, sub: "이번역", cls: "lg", lbl: "this" };
+
+    const stopHtml = (stop, pct) => `
+      <div class="tr-stop" style="left:${pct}%">
+        <div class="tr-dot ${stop.cls}"></div>
+        <div class="tr-label">
+          <span class="tr-sname${stop.cls === "lg" ? " bold" : ""}">${stop.name}</span>
+          <span class="tr-sub${stop.lbl ? " " + stop.lbl : ""}">${stop.sub}</span>
+          ${stop.status ? `<span class="tr-status">${stop.status}</span>` : ""}
+        </div>
+      </div>`;
+
     return `
-      <div class="arrival-card" style="--lc:${color}">
+      <div class="arrival-card${reversed ? " reversed" : ""}" style="--lc:${color}">
         <div class="card-top">
           <div class="card-line-info">
             <span class="line-chip">${lineName}</span>
+            ${isExpress ? '<span class="express-badge">급행</span>' : ""}
             <span class="card-dest">${dest}</span>
           </div>
-          ${isLast ? '<span class="last-badge">막차</span>' : ''}
+          ${isLast ? '<span class="last-badge">막차</span>' : ""}
         </div>
 
         <div class="tr-wrap">
           <div class="tr-track">
             <div class="tr-bg-line"></div>
-            <div class="tr-fg-line" style="width:${fgWidth}"></div>
-            <div class="tr-train" style="left:${p}%">🚇</div>
-
-            <div class="tr-stop" style="left:8%">
-              <div class="tr-dot sm${p2Passed ? ' passed' : ''}"></div>
-              <div class="tr-label">
-                <span class="tr-sname">${prev2 || '─'}</span>
-                <span class="tr-sub">전전역</span>
-              </div>
-            </div>
-
-            <div class="tr-stop" style="left:50%">
-              <div class="tr-dot md${p1Passed ? ' passed' : ''}"></div>
-              <div class="tr-label">
-                <span class="tr-sname">${prev1 || '─'}</span>
-                <span class="tr-sub">전역</span>
-                ${p1Status ? `<span class="tr-status">${p1Status}</span>` : ''}
-              </div>
-            </div>
-
-            <div class="tr-stop" style="left:92%">
-              <div class="tr-dot lg"></div>
-              <div class="tr-label">
-                <span class="tr-sname bold">${station}</span>
-                <span class="tr-sub this">이번역</span>
-              </div>
-            </div>
+            <div class="tr-fg-line" style="${fgStyle}"></div>
+            <div class="tr-train${reversed ? " rev" : ""}" style="left:${p}%">🚇</div>
+            ${stopHtml(leftStop,  8)}
+            ${stopHtml(midStop,  50)}
+            ${stopHtml(rightStop, 92)}
           </div>
         </div>
 
         <div class="card-bottom">
           <div class="arr-row">
             <span class="arr-mins ${minsClass}">${minsText}</span>
-            ${unitText ? `<span class="arr-unit">${unitText}</span>` : ''}
+            ${unitText ? `<span class="arr-unit">${unitText}</span>` : ""}
           </div>
-          ${arrTime ? `<div class="arr-eta">${arrTime} 도착 예정</div>` : ''}
+          ${arrTime ? `<div class="arr-eta">${arrTime} 도착 예정</div>` : ""}
         </div>
       </div>`;
   }).join("");
+}
+
+// ── 예정 시간표 토글 ──
+scheduleBtn.addEventListener("click", () => {
+  const hidden = scheduleSection.classList.toggle("hidden");
+  scheduleBtn.textContent = hidden ? "🕐 예정 시간표 보기" : "✕ 시간표 닫기";
+  if (!hidden && cachedList) renderSchedule(cachedList, cachedStation);
+});
+
+// ── 시간표 렌더링 ──
+function renderSchedule(list, station) {
+  const groups = {};
+  list.forEach(d => {
+    const lineId              = d.subwayId || "1001";
+    const { isExpress, dest } = parseTrainName(d.trainLineNm || "");
+    const key                 = `${lineId}::${dest}`;
+    if (!groups[key]) groups[key] = { lineId, dest, isExpress, trains: [] };
+    const secs = parseInt(d.barvlDt) || 0;
+    const arvlCd = d.arvlCd || "99";
+    const arrived = arvlCd === "1" || arvlCd === "0";
+    if (secs > 0 || arrived) {
+      const at = arrived
+        ? new Date()
+        : new Date(Date.now() + secs * 1000);
+      groups[key].trains.push({
+        time:      at.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
+        secs,
+        isLast:    d.lstcarAt === "1",
+        isExpress,
+        arrived
+      });
+    }
+  });
+
+  Object.values(groups).forEach(g =>
+    g.trains.sort((a, b) => a.secs - b.secs)
+  );
+
+  scheduleSection.innerHTML = `
+    <div class="sched-header-bar">
+      <span class="sched-title">🕐 ${stationLabel(station)} 예정 시간표</span>
+      <span class="sched-note">현재 기준 다음 도착 열차 (실시간)</span>
+    </div>
+    ${Object.values(groups).map(g => {
+      const color = LINE_COLOR[g.lineId] || "#999";
+      const lineName = LINE_LABEL[g.lineId] || "";
+      return `
+        <div class="sched-group">
+          <div class="sched-line-header" style="--lc:${color}">
+            <span class="line-chip">${lineName}</span>
+            ${g.isExpress ? '<span class="express-badge">급행</span>' : ""}
+            <span class="sched-dest">${g.dest}</span>
+          </div>
+          <div class="sched-times">
+            ${g.trains.map(t => `
+              <div class="sched-item${t.arrived ? " now" : ""}${t.isLast ? " last" : ""}">
+                <span class="sched-time">${t.time}</span>
+                ${t.arrived  ? '<span class="sched-tag now-tag">도착중</span>' : ""}
+                ${t.isExpress ? '<span class="sched-tag exp-tag">급행</span>'  : ""}
+                ${t.isLast   ? '<span class="sched-tag last-tag">막차</span>' : ""}
+              </div>`).join("")}
+          </div>
+        </div>`;
+    }).join("")}`;
 }
 
 // ── 상태 메시지 ──
