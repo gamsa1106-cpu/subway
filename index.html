@@ -34,37 +34,71 @@
       </div>
     </div>
 
-    <!-- 검색창 -->
-    <div class="search-wrap">
-      <div class="search-box">
-        <input
-          type="text"
-          id="station-input"
-          placeholder="역 이름 직접 검색 (예: 강남, 홍대입구)"
-          autocomplete="off"
-        />
-        <button id="search-btn">조회</button>
+    <!-- 모드 탭 -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tab-arrival">🚇 도착 알림</button>
+      <button class="mode-tab" id="tab-route">🗺 경로 안내</button>
+    </div>
+
+    <!-- ── 도착 알림 모드 ── -->
+    <div id="mode-arrival">
+      <!-- 검색창 -->
+      <div class="search-wrap">
+        <div class="search-box">
+          <input
+            type="text"
+            id="station-input"
+            placeholder="역 이름 직접 검색 (예: 강남, 홍대입구)"
+            autocomplete="off"
+          />
+          <button id="search-btn">조회</button>
+        </div>
+        <ul class="suggest-list" id="suggest-list"></ul>
       </div>
-      <ul class="suggest-list" id="suggest-list"></ul>
+
+      <!-- 상태 메시지 -->
+      <div id="status-msg" class="status-msg hidden"></div>
+
+      <!-- 새로고침 -->
+      <div class="refresh-bar hidden" id="refresh-bar">
+        <span id="refresh-info"></span>
+        <button id="refresh-btn">🔄 새로고침</button>
+      </div>
+
+      <!-- 시간표 버튼 -->
+      <button class="schedule-btn hidden" id="schedule-btn">🕐 예정 시간표 보기</button>
+
+      <!-- 결과 -->
+      <section class="arrival-grid" id="arrival-grid"></section>
+
+      <!-- 시간표 섹션 -->
+      <div class="schedule-section hidden" id="schedule-section"></div>
     </div>
 
-    <!-- 상태 메시지 -->
-    <div id="status-msg" class="status-msg hidden"></div>
-
-    <!-- 새로고침 -->
-    <div class="refresh-bar hidden" id="refresh-bar">
-      <span id="refresh-info"></span>
-      <button id="refresh-btn">🔄 새로고침</button>
+    <!-- ── 경로 안내 모드 ── -->
+    <div id="mode-route" class="hidden">
+      <div class="route-search-wrap">
+        <div class="route-inputs">
+          <div class="route-input-group">
+            <label>출발역</label>
+            <div class="search-box">
+              <input type="text" id="route-from" placeholder="출발역 입력" autocomplete="off">
+            </div>
+            <ul class="suggest-list" id="suggest-from"></ul>
+          </div>
+          <button class="swap-btn" id="swap-btn" title="출발/도착 바꾸기">⇅</button>
+          <div class="route-input-group">
+            <label>도착역</label>
+            <div class="search-box">
+              <input type="text" id="route-to" placeholder="도착역 입력" autocomplete="off">
+            </div>
+            <ul class="suggest-list" id="suggest-to"></ul>
+          </div>
+        </div>
+        <button class="btn-find-route" id="find-route-btn">경로 검색</button>
+      </div>
+      <div id="route-result"></div>
     </div>
-
-    <!-- 시간표 버튼 -->
-    <button class="schedule-btn hidden" id="schedule-btn">🕐 예정 시간표 보기</button>
-
-    <!-- 결과 -->
-    <section class="arrival-grid" id="arrival-grid"></section>
-
-    <!-- 시간표 섹션 -->
-    <div class="schedule-section hidden" id="schedule-section"></div>
 
   </main>
 

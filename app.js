@@ -498,5 +498,232 @@ function stationLabel(name) {
   return name.endsWith("역") ? name : name + "역";
 }
 
+// ── 모드 탭 전환 ──
+document.getElementById("tab-arrival").addEventListener("click", () => {
+  document.getElementById("tab-arrival").classList.add("active");
+  document.getElementById("tab-route").classList.remove("active");
+  document.getElementById("mode-arrival").classList.remove("hidden");
+  document.getElementById("mode-route").classList.add("hidden");
+});
+document.getElementById("tab-route").addEventListener("click", () => {
+  document.getElementById("tab-route").classList.add("active");
+  document.getElementById("tab-arrival").classList.remove("active");
+  document.getElementById("mode-route").classList.remove("hidden");
+  document.getElementById("mode-arrival").classList.add("hidden");
+});
+
+// ── 경로 안내 자동완성 ──
+function initRouteAutocomplete(inputId, suggestId, otherInputId) {
+  const inp = document.getElementById(inputId);
+  const sug = document.getElementById(suggestId);
+  inp.addEventListener("input", () => {
+    const q = inp.value.trim();
+    if (!q) { sug.innerHTML = ""; return; }
+    const hits = ALL_STATIONS.filter(s => s.includes(q)).slice(0, 6);
+    sug.innerHTML = hits.map(s =>
+      `<li onclick="document.getElementById('${inputId}').value='${s}';document.getElementById('${suggestId}').innerHTML=''">${stationLabel(s)}</li>`
+    ).join("");
+  });
+  inp.addEventListener("blur", () => setTimeout(() => sug.innerHTML = "", 200));
+}
+initRouteAutocomplete("route-from", "suggest-from");
+initRouteAutocomplete("route-to",   "suggest-to");
+
+// 출발/도착 바꾸기
+document.getElementById("swap-btn").addEventListener("click", () => {
+  const a = document.getElementById("route-from").value;
+  const b = document.getElementById("route-to").value;
+  document.getElementById("route-from").value = b;
+  document.getElementById("route-to").value   = a;
+});
+
+document.getElementById("find-route-btn").addEventListener("click", () => {
+  const from = document.getElementById("route-from").value.trim().replace(/역$/, "");
+  const to   = document.getElementById("route-to").value.trim().replace(/역$/, "");
+  if (!from || !to) { alert("출발역과 도착역을 입력해주세요."); return; }
+  if (from === to)  { alert("출발역과 도착역이 같습니다."); return; }
+  const result = findRoute(from, to);
+  renderRouteResult(result, from, to);
+});
+
+// ── 경로 탐색 (Dijkstra) ──
+function findRoute(startStation, endStation) {
+  // 인접 그래프 구성: 노드 = "역명::노선ID"
+  const adj = new Map();
+
+  for (const [lineId, stations] of Object.entries(LINE_STATIONS)) {
+    for (let i = 0; i < stations.length; i++) {
+      const key = `${stations[i]}::${lineId}`;
+      if (!adj.has(key)) adj.set(key, []);
+      if (i > 0) {
+        const prev = `${stations[i-1]}::${lineId}`;
+        if (!adj.has(prev)) adj.set(prev, []);
+        adj.get(key).push({ to: prev, cost: 2, type: "ride" });
+        adj.get(prev).push({ to: key, cost: 2, type: "ride" });
+      }
+    }
+  }
+
+  // 환승 엣지: 같은 역명, 다른 노선
+  const stationLines = {};
+  for (const [lineId, stations] of Object.entries(LINE_STATIONS)) {
+    for (const s of stations) {
+      (stationLines[s] = stationLines[s] || new Set()).add(lineId);
+    }
+  }
+  for (const [station, lines] of Object.entries(stationLines)) {
+    const arr = [...lines];
+    for (let i = 0; i < arr.length; i++) {
+      for (let j = i + 1; j < arr.length; j++) {
+        const a = `${station}::${arr[i]}`;
+        const b = `${station}::${arr[j]}`;
+        if (adj.has(a) && adj.has(b)) {
+          adj.get(a).push({ to: b, cost: 4, type: "transfer" });
+          adj.get(b).push({ to: a, cost: 4, type: "transfer" });
+        }
+      }
+    }
+  }
+
+  // Dijkstra
+  const dist = {};
+  const prev = {};
+  const queue = [];
+
+  for (const key of adj.keys()) {
+    if (key.startsWith(startStation + "::")) {
+      dist[key] = 0;
+      queue.push({ key, cost: 0 });
+    }
+  }
+  if (!queue.length) return null;
+
+  while (queue.length) {
+    queue.sort((a, b) => a.cost - b.cost);
+    const { key, cost } = queue.shift();
+    if ((dist[key] ?? Infinity) < cost) continue;
+
+    const [name] = key.split("::");
+    if (name === endStation) {
+      return buildSegments(prev, key);
+    }
+
+    for (const edge of (adj.get(key) || [])) {
+      const nc = cost + edge.cost;
+      if ((dist[edge.to] ?? Infinity) > nc) {
+        dist[edge.to] = nc;
+        prev[edge.to] = { from: key, edge };
+        queue.push({ key: edge.to, cost: nc });
+      }
+    }
+  }
+  return null;
+}
+
+function buildSegments(prev, endKey) {
+  // 역방향으로 경로 복원
+  const steps = [];
+  let cur = endKey;
+  while (prev[cur]) {
+    steps.unshift({ to: cur, from: prev[cur].from, edge: prev[cur].edge });
+    cur = prev[cur].from;
+  }
+
+  // 노선별 구간으로 묶기
+  const segments = [];
+  let seg = null;
+
+  for (const { to, from, edge } of steps) {
+    const [fromName] = from.split("::");
+    const [toName, toLine] = to.split("::");
+
+    if (edge.type === "transfer") {
+      if (seg) { segments.push(seg); seg = null; }
+      continue;
+    }
+    if (!seg || seg.lineId !== toLine) {
+      if (seg) segments.push(seg);
+      seg = { lineId: toLine, stations: [fromName] };
+    }
+    seg.stations.push(toName);
+  }
+  if (seg) segments.push(seg);
+
+  let totalTime = 0, totalStops = 0;
+  const transfers = Math.max(0, segments.length - 1);
+  segments.forEach(s => {
+    s.stops    = s.stations.length - 1;
+    s.from     = s.stations[0];
+    s.to       = s.stations[s.stations.length - 1];
+    s.lineName = LINE_LABEL[s.lineId] || s.lineId;
+    s.color    = LINE_COLOR[s.lineId] || "#888";
+    totalStops += s.stops;
+    totalTime  += s.stops * 2;
+  });
+  totalTime += transfers * 4;
+
+  return { segments, totalTime, totalStops, transfers };
+}
+
+// ── 경로 결과 렌더링 ──
+function renderRouteResult(result, from, to) {
+  const el = document.getElementById("route-result");
+
+  if (!result) {
+    el.innerHTML = `
+      <div class="route-no-result">
+        <div>😥</div>
+        <p><strong>${stationLabel(from)}</strong> → <strong>${stationLabel(to)}</strong> 경로를 찾을 수 없어요.</p>
+        <p>역 이름을 다시 확인해주세요.</p>
+      </div>`;
+    return;
+  }
+
+  const { segments, totalTime, totalStops, transfers } = result;
+
+  const segHtml = segments.map((seg, idx) => {
+    const isLast = idx === segments.length - 1;
+    const nextSeg = segments[idx + 1];
+
+    const stopsHtml = seg.stations.map((s, i) => {
+      const isFirst = i === 0;
+      const isEnd   = i === seg.stations.length - 1;
+      const cls     = isFirst ? "dep" : isEnd ? "arr" : "mid";
+      const label   = isFirst ? "출발" : isEnd && isLast ? "도착" : isEnd ? "환승" : "";
+      return `
+        <div class="rseg-stop ${cls}">
+          <div class="rseg-dot"></div>
+          <span class="rseg-name">${stationLabel(s)}</span>
+          ${label ? `<span class="rseg-badge ${cls}">${label}</span>` : ""}
+        </div>`;
+    }).join("");
+
+    const transferHtml = !isLast ? `
+      <div class="rtransfer">
+        <div class="rtransfer-line"></div>
+        <span class="rtransfer-label">🔁 ${stationLabel(seg.to)} 환승 → ${nextSeg.lineName} 승차 (약 4분)</span>
+      </div>` : "";
+
+    return `
+      <div class="rsegment">
+        <div class="rseg-header" style="--lc:${seg.color}">
+          <span class="line-chip" style="background:${seg.color}">${seg.lineName}</span>
+          <span class="rseg-desc">${stationLabel(seg.from)} → ${stationLabel(seg.to)} · ${seg.stops}개 정거장</span>
+        </div>
+        <div class="rseg-stops">${stopsHtml}</div>
+      </div>
+      ${transferHtml}`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="route-result-box">
+      <div class="route-summary">
+        <div class="route-time">약 ${totalTime}분</div>
+        <div class="route-meta">${totalStops}개 정거장${transfers > 0 ? ` · 환승 ${transfers}회` : " · 환승 없음"}</div>
+      </div>
+      ${segHtml}
+    </div>`;
+}
+
 // 초기화
 initLineMenu();
