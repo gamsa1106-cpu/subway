@@ -149,7 +149,14 @@ function initLineMenu() {
       return `<button class="line-tab" data-line="${id}" style="--lc:${c}"><div class="line-tab-bar"></div><span class="line-tab-label">${name}</span></button>`;
     }).join("");
 
-  lineTabs.querySelectorAll(".line-tab").forEach(btn => {
+  // 전체노선도 버튼 추가
+  const fmBtn = document.createElement("button");
+  fmBtn.className = "line-tab fullmap-tab";
+  fmBtn.innerHTML = '<div class="line-tab-bar"></div><span class="line-tab-label">🗺 전체노선도</span>';
+  fmBtn.addEventListener("click", openFullMap);
+  lineTabs.appendChild(fmBtn);
+
+  lineTabs.querySelectorAll(".line-tab[data-line]").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.line;
       if (activeLineId === id) {
@@ -819,6 +826,78 @@ function renderRouteResults(rTime, rXfer, from, to) {
       + (rXfer && !sameRoute ? buildRouteCard(rXfer, "🔁 최소환승", "xfer") : "");
   }
 }
+
+// ── 전체노선도 모달 ──
+const fmOverlay  = document.getElementById("fm-overlay");
+const fmInner    = document.getElementById("fm-inner");
+const fmViewport = document.getElementById("fm-viewport");
+const fmImg      = document.getElementById("fm-img");
+
+let fmScale = 1;
+const FM_BASE = 1600; // 기본 너비(px)
+
+function applyFmZoom() {
+  fmInner.style.width  = (FM_BASE * fmScale) + "px";
+  fmInner.style.height = "auto";
+}
+
+function openFullMap() {
+  fmScale = Math.max(0.5, fmViewport.clientWidth / FM_BASE);
+  applyFmZoom();
+  fmOverlay.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+function closeFullMap() {
+  fmOverlay.classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+document.getElementById("fm-close").addEventListener("click", closeFullMap);
+document.getElementById("fm-zoom-in").addEventListener("click", () => {
+  fmScale = Math.min(fmScale * 1.4, 5);
+  applyFmZoom();
+});
+document.getElementById("fm-zoom-out").addEventListener("click", () => {
+  fmScale = Math.max(fmScale / 1.4, 0.3);
+  applyFmZoom();
+});
+document.getElementById("fm-reset").addEventListener("click", () => {
+  fmScale = Math.max(0.5, fmViewport.clientWidth / FM_BASE);
+  applyFmZoom();
+  fmViewport.scrollTo(0, 0);
+});
+fmOverlay.addEventListener("click", e => {
+  if (e.target === fmOverlay) closeFullMap();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeFullMap();
+});
+
+// 드래그 패닝
+let drag = { on: false, sx: 0, sy: 0, sl: 0, st: 0 };
+fmViewport.addEventListener("mousedown", e => {
+  drag = { on: true, sx: e.clientX, sy: e.clientY,
+           sl: fmViewport.scrollLeft, st: fmViewport.scrollTop };
+  fmViewport.style.cursor = "grabbing";
+  e.preventDefault();
+});
+window.addEventListener("mousemove", e => {
+  if (!drag.on) return;
+  fmViewport.scrollLeft = drag.sl - (e.clientX - drag.sx);
+  fmViewport.scrollTop  = drag.st - (e.clientY - drag.sy);
+});
+window.addEventListener("mouseup", () => {
+  drag.on = false;
+  fmViewport.style.cursor = "grab";
+});
+
+// 마우스 휠 줌
+fmViewport.addEventListener("wheel", e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+  fmScale = Math.min(Math.max(fmScale * factor, 0.3), 5);
+  applyFmZoom();
+}, { passive: false });
 
 // 초기화
 initLineMenu();

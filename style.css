@@ -666,6 +666,104 @@ main {
   margin-bottom: 14px;
 }
 
+/* ── 전체노선도 탭 버튼 ── */
+.fullmap-tab {
+  --lc: #444;
+  background: #1a1a2e !important;
+  color: #eee !important;
+}
+.fullmap-tab .line-tab-bar { background: #e0c060 !important; }
+.fullmap-tab:hover { box-shadow: 0 3px 14px rgba(0,0,0,0.3) !important; transform: translateY(-1px); }
+
+/* ── 전체노선도 모달 ── */
+.fm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  z-index: 2000;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+.fm-overlay.hidden { display: none !important; }
+
+.fm-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #0f1623;
+  overflow: hidden;
+}
+
+/* 툴바 */
+.fm-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.fm-title {
+  color: white;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.fm-controls { display: flex; gap: 6px; flex-wrap: wrap; }
+.fm-btn {
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.fm-btn:hover { background: rgba(255,255,255,0.18); }
+.fm-close-btn { color: #ff8080; border-color: rgba(255,100,100,0.25); }
+.fm-close-btn:hover { background: rgba(255,80,80,0.18); }
+
+/* 안내 텍스트 */
+.fm-hint {
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.3);
+  padding: 5px 0 2px;
+  flex-shrink: 0;
+}
+
+/* 지도 뷰포트 */
+.fm-viewport {
+  flex: 1;
+  overflow: auto;
+  cursor: grab;
+  background: #fff;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+.fm-viewport:active { cursor: grabbing; }
+.fm-viewport::-webkit-scrollbar { width: 6px; height: 6px; }
+.fm-viewport::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
+
+.fm-inner {
+  width: 1600px; /* JS로 제어 */
+  transition: width .2s;
+}
+.fm-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 /* ── Footer ── */
 footer {
   background: #1a1a2e;

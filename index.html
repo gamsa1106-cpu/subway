@@ -109,6 +109,30 @@
     <p>데이터 출처: 서울 열린데이터 광장 · 실시간 자동 갱신 (30초)</p>
   </footer>
 
+  <!-- ── 전체노선도 모달 ── -->
+  <div class="fm-overlay hidden" id="fm-overlay">
+    <div class="fm-panel">
+      <div class="fm-toolbar">
+        <span class="fm-title">🗺 서울 지하철 전체 노선도</span>
+        <div class="fm-controls">
+          <button class="fm-btn" id="fm-zoom-in">＋ 확대</button>
+          <button class="fm-btn" id="fm-zoom-out">－ 축소</button>
+          <button class="fm-btn" id="fm-reset">원래 크기</button>
+          <button class="fm-btn fm-close-btn" id="fm-close">✕ 닫기</button>
+        </div>
+      </div>
+      <div class="fm-hint">드래그로 이동 · 핀치/버튼으로 확대·축소</div>
+      <div class="fm-viewport" id="fm-viewport">
+        <div class="fm-inner" id="fm-inner">
+          <img class="fm-img" id="fm-img"
+               src="https://upload.wikimedia.org/wikipedia/commons/8/85/Seoul_subway_linemap_ko.svg"
+               alt="서울 지하철 전체 노선도"
+               draggable="false">
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
