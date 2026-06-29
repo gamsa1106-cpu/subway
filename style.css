@@ -57,21 +57,22 @@ main {
   padding: 20px 20px 40px;
 }
 
-/* ── 노선 탭 메뉴바 (2열 그리드) ── */
+/* ── 노선 탭 메뉴바 (2행) ── */
 .line-tabs {
-  display: grid;
-  grid-template-rows: repeat(2, auto);
-  grid-auto-flow: column;
-  grid-auto-columns: max-content;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   margin-bottom: 18px;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #ddd transparent;
-  padding-bottom: 6px;
 }
-.line-tabs::-webkit-scrollbar { height: 4px; }
-.line-tabs::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+.line-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.line-row::-webkit-scrollbar { display: none; }
 
 .line-tab {
   flex-shrink: 0;

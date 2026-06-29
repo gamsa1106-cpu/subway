@@ -142,19 +142,27 @@ const scheduleBtn     = document.getElementById("schedule-btn");
 
 // ── 노선 탭 초기화 ──
 function initLineMenu() {
-  lineTabs.innerHTML = Object.entries(LINE_LABEL)
-    .filter(([id]) => !LINE_HIDDEN.has(id))
-    .map(([id, name]) => {
-      const c = LINE_COLOR[id];
-      return `<button class="line-tab" data-line="${id}" style="--lc:${c}"><div class="line-tab-bar"></div><span class="line-tab-label">${name}</span></button>`;
-    }).join("");
+  const numbered = ["1001","1002","1003","1004","1005","1006","1007","1008","1009"];
+  const named    = ["1063","1065","1067","1075","1077","1092","1093"];
 
-  // 전체노선도 버튼 추가
-  const fmBtn = document.createElement("button");
-  fmBtn.className = "line-tab fullmap-tab";
-  fmBtn.innerHTML = '<div class="line-tab-bar"></div><span class="line-tab-label">🗺 전체노선도</span>';
-  fmBtn.addEventListener("click", openFullMap);
-  lineTabs.appendChild(fmBtn);
+  const makeTab = id => {
+    const c = LINE_COLOR[id];
+    return `<button class="line-tab" data-line="${id}" style="--lc:${c}">
+      <div class="line-tab-bar"></div><span class="line-tab-label">${LINE_LABEL[id]}</span>
+    </button>`;
+  };
+
+  lineTabs.innerHTML = `
+    <div class="line-row">${numbered.map(makeTab).join("")}</div>
+    <div class="line-row">
+      ${named.map(makeTab).join("")}
+      <button class="line-tab fullmap-tab" id="fullmap-tab-btn">
+        <div class="line-tab-bar"></div><span class="line-tab-label">🗺 전체노선도</span>
+      </button>
+    </div>
+  `;
+
+  document.getElementById("fullmap-tab-btn").addEventListener("click", openFullMap);
 
   lineTabs.querySelectorAll(".line-tab[data-line]").forEach(btn => {
     btn.addEventListener("click", () => {
